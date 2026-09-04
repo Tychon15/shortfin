@@ -1,0 +1,40 @@
+
+background = {background}
+selected_bg = {color8}
+header_bg = {color1}
+
+text = {foreground}
+selected_text = {color4}
+header_text = {color7}
+inactive_text = {color8}
+
+gpu_util_low = {color6}
+gpu_util_med = {color3}
+gpu_util_high = {color1}
+
+memory_low = {color14}
+memory_med = {color12}
+memory_high = {color4}
+
+temp_cool = {color6}
+temp_warm = {color3}
+temp_hot = {color1}
+
+power_low = {color6}
+power_med = {color2}
+power_high = {color5}
+
+process_normal = {foreground}
+process_highlight = {color4}
+process_killed = {color1}
+
+border = {color8}
+separator = {color1}
+
+chart_line = {color13}
+chart_fill = {color0}
+
+status_ok = {color2}
+status_warning = {color3}
+status_error = {color1}
+status_info = {color6}

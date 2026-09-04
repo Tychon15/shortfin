@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+command -v cliphist >/dev/null || { echo "shortfin-clipboard: cliphist is not installed" >&2; exit 1; }
+command -v fuzzel   >/dev/null || { echo "shortfin-clipboard: fuzzel is not installed" >&2; exit 1; }
+
+case "${1-}" in
+    -d|--delete) prompt="delete> " ; action=delete ;;
+    "")          prompt="clipboard> "; action=copy   ;;
+    *)           echo "shortfin-clipboard: unknown option '$1'" >&2; exit 2 ;;
+esac
+
+choice=$(cliphist list | fuzzel --dmenu --prompt "$prompt") || exit 0
+[ -n "$choice" ] || exit 0
+
+if [ "$action" = delete ]; then
+    printf '%s\n' "$choice" | cliphist delete
+else
+    printf '%s\n' "$choice" | cliphist decode | wl-copy
+fi

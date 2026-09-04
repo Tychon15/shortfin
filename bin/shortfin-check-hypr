@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+command -v lua >/dev/null || { echo "shortfin-check-hypr: lua is not installed" >&2; exit 1; }
+
+list_binds=false
+dir="${XDG_CONFIG_HOME:-$HOME/.config}/hypr"
+
+for arg in "$@"; do
+    case "$arg" in
+        --binds) list_binds=true ;;
+        -h|--help)
+            cat <<'USAGE'
+shortfin-check-hypr — load the Hyprland config outside Hyprland and report
+what it registers, or where it breaks.
+
+  shortfin-check-hypr           check ~/.config/hypr
+  shortfin-check-hypr --binds   also list every key and what it dispatches
+  shortfin-check-hypr <dir>     check some other config directory
+USAGE
+            exit 0 ;;
+        *) dir="$arg" ;;
+    esac
+done
+
+[ -f "$dir/hyprland.lua" ] || { echo "shortfin-check-hypr: no hyprland.lua in $dir" >&2; exit 1; }
+
+HYPR_DIR="$dir" LIST_BINDS="$list_binds" lua - <<'LUA'
+local counts, binds = {}, {}
+
+local function tally(name)
+    return function() counts[name] = (counts[name] or 0) + 1 end
+end
+
+local dsp = setmetatable({}, { __index = function(_, key)
+    return setmetatable({}, {
+        __call  = function() return "dsp." .. key end,
+        __index = function(_, sub) return function() return "dsp." .. key .. "." .. sub end end,
+    })
+end })
+
+hl = {
+    config = tally("config"),      monitor = tally("monitor"),
+    unbind = tally("unbind"),      env = tally("env"),
+    curve = tally("curve"),        animation = tally("animation"),
+    gesture = tally("gesture"),    window_rule = tally("window_rule"),
+    layer_rule = tally("layer_rule"), workspace_rule = tally("workspace_rule"),
+    on = tally("on"),              dispatch = tally("dispatch"),
+    exec_cmd = tally("exec_cmd"),
+    bind = function(key, action)
+        counts.bind = (counts.bind or 0) + 1
+        binds[#binds + 1] = { key = tostring(key), action = tostring(action) }
+    end,
+    get_active_window = function() return nil end,
+    get_active_workspace = function() return nil end,
+    get_active_special_workspace = function() return nil end,
+    get_active_monitor = function() return nil end,
+    get_windows = function() return {} end,
+    dsp = dsp,
+}
+
+local dir = os.getenv("HYPR_DIR")
+package.path = package.path .. ";" .. dir .. "/?.lua"
+
+local ok, err = pcall(dofile, dir .. "/hyprland.lua")
+if not ok then
+    io.stderr:write("config error: " .. tostring(err) .. "\n")
+    os.exit(1)
+end
+
+if os.getenv("LIST_BINDS") == "true" then
+    table.sort(binds, function(a, b) return a.key < b.key end)
+    for _, b in ipairs(binds) do
+        print(string.format("  %-34s %s", b.key, b.action))
+    end
+    print()
+end
+
+local names = {}
+for name in pairs(counts) do names[#names + 1] = name end
+table.sort(names)
+for _, name in ipairs(names) do
+    print(string.format("  %-16s %d", name, counts[name]))
+end
+print()
+print("config loads cleanly")
+LUA

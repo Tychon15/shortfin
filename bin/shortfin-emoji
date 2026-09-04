@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+command -v fuzzel >/dev/null || { echo "shortfin-emoji: fuzzel is not installed" >&2; exit 1; }
+
+data=""
+for candidate in /usr/share/unicode/emoji/emoji-test.txt /usr/share/unicode-emoji/emoji-test.txt; do
+    [ -r "$candidate" ] && { data="$candidate"; break; }
+done
+
+if [ -z "$data" ]; then
+    echo "shortfin-emoji: no emoji-test.txt found — install the 'unicode-emoji' package" >&2
+    exit 1
+fi
+
+cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/shortfin"
+list="$cache_dir/emoji.txt"
+mkdir -p "$cache_dir"
+
+if [ ! -s "$list" ] || [ "$data" -nt "$list" ]; then
+    awk -F'#' '
+        /; fully-qualified/ {
+            split($2, parts, " ")
+            glyph = parts[1]
+            name = ""
+            for (i = 3; i <= length(parts); i++) name = name (name ? " " : "") parts[i]
+            if (glyph != "" && name != "") print glyph "  " name
+        }
+    ' "$data" > "$list"
+fi
+
+choice=$(fuzzel --dmenu --prompt "emoji> " < "$list") || exit 0
+[ -n "$choice" ] || exit 0
+
+printf '%s' "${choice%%  *}" | wl-copy

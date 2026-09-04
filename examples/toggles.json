@@ -1,0 +1,22 @@
+{
+    "_comment": "~/.config/shortfin/toggles.json — which applications the special-workspace keys reach for. Merged over the defaults in config/hypr/utils/functions.lua, so you only name what you want to change. `command` is what gets launched when nothing matches; leave it out and the workspace will only collect an application that is already running.",
+
+    "toggles": {
+        "music": {
+            "spotify": {
+                "enable": true,
+                "match": [{ "class": "Spotify" }, { "initial_title": "Spotify" }],
+                "command": ["spotify"],
+                "move": true
+            }
+        },
+        "communication": {
+            "discord": {
+                "enable": true,
+                "match": [{ "class": "discord" }],
+                "command": ["discord"],
+                "move": true
+            }
+        }
+    }
+}

@@ -1,0 +1,7 @@
+config/hypr/scheme/current.lua
+config/hypr/hyprland-gui.lua
+config/fish/fish_variables
+config/fish/fishd.*
+*.swp
+*~
+.DS_Store

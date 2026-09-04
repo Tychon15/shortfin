@@ -1,0 +1,46 @@
+{
+    "_comment": "~/.config/shortfin/config.json — every value below is the default. Delete any key to fall back to it; delete the file entirely and nothing changes. Edits apply live, no restart needed. JSON has no comments, so the README carries the explanations.",
+
+    "barHeight": 34,
+    "barMargin": 6,
+    "radius": 12,
+    "spacing": 8,
+    "padding": 10,
+
+    "font": "RobotoMono Nerd Font",
+    "iconFont": "JetBrainsMono Nerd Font",
+    "fontSize": 12,
+
+    "good": "#3fc7a4",
+    "warn": "#e6b455",
+    "bad": "#e8687e",
+
+    "workspaceCount": 5,
+    "showDate": true,
+    "animDuration": 180,
+    "windowAnimIn": 500,
+    "windowAnimOut": 400,
+    "lockAnimIn": 900,
+    "lockAnimOut": 800,
+    "animCurve": [0.05, 0.7, 0.1, 1.0, 1.0, 1.0],
+
+    "wallpaperDir": "~/Pictures/Wallpapers",
+    "pollInterval": 2000,
+    "diskMount": "/",
+    "cpuTempSensor": "coretemp|k10temp|zenpower|cpu_thermal",
+
+    "weather": {
+        "latitude": 0,
+        "longitude": 0,
+        "place": "",
+        "units": "metric"
+    },
+
+    "specialIcons": {
+        "music": "󰎇",
+        "communication": "󰭹",
+        "sysmon": "󰍛",
+        "todo": "󰰘",
+        "special": "󰌨"
+    }
+}

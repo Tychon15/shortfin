@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+user_dir="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell"
+system_dir="/etc/xdg/quickshell"
+
+
+configs() {
+    { [ -d "$user_dir" ] && find -L "$user_dir" -mindepth 2 -maxdepth 2 -name shell.qml -printf '%h\n'
+      [ -d "$system_dir" ] && find -L "$system_dir" -mindepth 2 -maxdepth 2 -name shell.qml -printf '%h\n'
+    } 2>/dev/null | xargs -r -n1 basename | awk '!seen[$0]++'
+}
+
+running() {
+    qs list --all --json 2>/dev/null | python3 -c '
+import json, os, sys
+try:
+    for i in json.load(sys.stdin):
+        print(os.path.basename(os.path.dirname(i["config_path"])))
+except Exception:
+    pass
+' | awk '!seen[$0]++'
+}
+
+is_running() { running | grep -qx -- "$1"; }
+
+exists() { configs | grep -qx -- "$1"; }
+
+where() {
+    if [ -f "$user_dir/$1/shell.qml" ]; then echo "$user_dir/$1"; else echo "$system_dir/$1"; fi
+}
+
+
+start() {
+    local name=$1
+    qs -c "$name" -n -d >/dev/null 2>&1 || return 1
+}
+
+stop() { qs -c "$1" kill >/dev/null 2>&1 || true; }
+
+stop_all() {
+    local name
+    while read -r name; do
+        [ -n "$name" ] && stop "$name"
+    done < <(running)
+}
+
+status() {
+    local live name
+    live=$(running | paste -sd' ' -)
+    echo "running:   ${live:-none}"
+    echo "available:"
+    while read -r name; do
+        if is_running "$name"; then printf '  * %-14s %s\n' "$name" "$(where "$name")"
+        else printf '    %-14s %s\n' "$name" "$(where "$name")"; fi
+    done < <(configs)
+}
+
+switch() {
+    local name=$1
+    exists "$name" || { echo "shell-switch: no config named '$name'" >&2; status >&2; exit 1; }
+
+    stop_all
+    sleep 0.3
+    if start "$name"; then
+        echo "switched to $name"
+    else
+        echo "shell-switch: failed to start '$name'" >&2
+        exit 1
+    fi
+}
+
+
+case "${1-status}" in
+    status|"")
+        status
+        ;;
+    list)
+        configs
+        ;;
+    stop)
+        stop_all
+        echo "stopped"
+        ;;
+    restart)
+        current=$(running | head -n1)
+        [ -n "$current" ] || { echo "shell-switch: nothing running" >&2; exit 1; }
+        switch "$current"
+        ;;
+    toggle)
+        mapfile -t all < <(configs)
+        [ "${#all[@]}" -gt 1 ] || { echo "shell-switch: only one config available" >&2; exit 1; }
+        current=$(running | head -n1)
+        next=${all[0]}
+        for i in "${!all[@]}"; do
+            if [ "${all[$i]}" = "$current" ]; then
+                next=${all[$(((i + 1) % ${#all[@]}))]}
+                break
+            fi
+        done
+        switch "$next"
+        ;;
+    -h|--help|help)
+        cat <<'USAGE'
+shell-switch — start, stop and swap between Quickshell configurations.
+
+  shell-switch                 show what is running and what is available
+  shell-switch <name>          switch to that config (stops the others)
+  shell-switch toggle          cycle to the next available config
+  shell-switch restart         restart whatever is running
+  shell-switch stop            stop every running Quickshell instance
+USAGE
+        exit 0
+        ;;
+    *)
+        switch "$1"
+        ;;
+esac

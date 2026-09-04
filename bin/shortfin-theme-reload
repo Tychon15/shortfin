@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+
+set -uo pipefail
+
+cache="${XDG_CACHE_HOME:-$HOME/.cache}/wal"
+colors="$cache/colors.json"
+
+shell_palette="${XDG_CACHE_HOME:-$HOME/.cache}/shortfin/palette.json"
+
+repo="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+[ -r "$colors" ] || exit 0
+
+field() {
+    python3 -c '
+import json, sys
+with open(sys.argv[1]) as f:
+    data = json.load(f)
+node = data
+for part in sys.argv[2].split("."):
+    node = node[part]
+print(node)
+' "$colors" "$1" 2>/dev/null
+}
+
+if command -v hyprctl >/dev/null 2>&1; then
+    accent=$(field "colors.color4")
+    muted=$(field "colors.color8")
+    accent=${accent#\#}
+    muted=${muted#\#}
+
+    if [ -r "$shell_palette" ]; then
+        derived=$(python3 -c '
+import json, sys
+with open(sys.argv[1]) as f:
+    p = json.load(f)
+print(p.get("accent", "").lstrip("#"), p.get("fgDim", "").lstrip("#"))
+' "$shell_palette" 2>/dev/null) || derived=""
+        set -- $derived
+        [ -n "${1:-}" ] && accent=$1
+        [ -n "${2:-}" ] && muted=$2
+    fi
+
+    if [ -n "$accent" ] && [ -n "$muted" ]; then
+        active="rgba(${accent}e6)"
+        inactive="rgba(${muted}11)"
+        shadow="rgba(${accent}10)"
+
+        lua="hl.config({ general = { [\"col.active_border\"] = \"$active\", [\"col.inactive_border\"] = \"$inactive\" }, decoration = { shadow = { color = \"$shadow\" } } })"
+
+        if [ "$(hyprctl eval "$lua" 2>&1)" != ok ]; then
+            hyprctl keyword general:col.active_border   "$active"   >/dev/null 2>&1
+            hyprctl keyword general:col.inactive_border "$inactive" >/dev/null 2>&1
+            hyprctl keyword decoration:shadow:color     "$shadow"   >/dev/null 2>&1
+        fi
+    fi
+fi
+
+conf="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+install_generated() {
+    local src="$cache/$1" dest="$2"
+
+    [ -r "$src" ] || return 0
+
+    [ -L "$dest" ] && return 0
+
+    mkdir -p "$(dirname "$dest")"
+    cp -f "$src" "$dest" 2>/dev/null || true
+}
+
+install_generated cava-config    "$conf/cava/config"
+install_generated colors-nvtop   "$conf/nvtop/nvtop.colors"
+install_generated btopwal.theme  "$conf/btop/themes/shortfin.theme"
+install_generated qtengine.colors "$conf/qtengine/shortfin.colors"
+install_generated gtk.css        "$conf/gtk-3.0/gtk.css"
+install_generated gtk.css        "$conf/gtk-4.0/gtk.css"
+
+mako_template=""
+for candidate in "$repo/config/mako/config.in" "$conf/shortfin/mako.config.in"; do
+    [ -r "$candidate" ] && { mako_template="$candidate"; break; }
+done
+
+if [ -r "$shell_palette" ] && [ -z "$mako_template" ]; then
+    echo "shortfin-theme-reload: cannot find config/mako/config.in (looked next to $repo)" >&2
+fi
+
+if [ -r "$shell_palette" ] && [ -n "$mako_template" ] && [ ! -L "$conf/mako/config" ]; then
+    mkdir -p "$conf/mako"
+    python3 - "$shell_palette" "$mako_template" "$conf/mako/config" <<'RENDER'
+import colorsys, json, sys
+
+palette_path, template_path, out_path = sys.argv[1:4]
+with open(palette_path) as handle:
+    p = json.load(handle)
+
+
+def lighter(hex_colour, factor):
+    """Qt.lighter: scale the HSV value, leaving hue and saturation alone.
+
+    The bar draws its borders as lighter(background, 1.6); matching that here
+    is what makes a notification's edge read as the same edge.
+    """
+    raw = hex_colour.lstrip("#")
+    r, g, b = (int(raw[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    h, s, v = colorsys.rgb_to_hsv(r, g, b)
+    r, g, b = colorsys.hsv_to_rgb(h, s, min(1.0, v * factor))
+    return "#%02x%02x%02x" % (round(r * 255), round(g * 255), round(b * 255))
+
+
+values = dict(p)
+values["border"] = lighter(p["bgAlt"], 1.6)
+values["borderPanel"] = lighter(p["bg"], 1.8)
+
+with open(template_path) as handle:
+    template = handle.read()
+
+for key, value in values.items():
+    template = template.replace("{%s}" % key, str(value))
+
+with open(out_path, "w") as handle:
+    handle.write(template)
+RENDER
+fi
+
+command -v makoctl >/dev/null 2>&1 && makoctl reload >/dev/null 2>&1
+
+exit 0
