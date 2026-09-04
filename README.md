@@ -5,10 +5,10 @@
 ```sh
 git clone https://github.com/Tychon15/shortfin.git
 cd shortfin
-./install.sh
 ```
 
 ```sh
+./install.sh # install regularly or
 ./install.sh --no-packages  # hold the packages
 ./install.sh --uninstall
 ```
