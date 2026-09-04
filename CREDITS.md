@@ -3,8 +3,7 @@
 Shortfin isn't built from nothing. These are the people that helped it exist.
 
 `config/hypr/` is a fork of the Hyprland configuration from
-[caelestia-dots/caelestia](https://github.com/caelestia-dots/caelestia),
-GPL-3.0-only, taken at commit `1ee7a98`.
+[caelestia-dots/caelestia](https://github.com/caelestia-dots/caelestia)
 
 `config/fastfetch/config.jsonc` is by **Bina**, credited in the file's own
 header.
